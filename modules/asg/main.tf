@@ -48,4 +48,16 @@ resource "aws_autoscaling_group" "cluster-asg" {
       }
     }
   }
+
+  tag {
+    key = "AmazonECSManaged"
+    value = true
+    propagate_at_launch = true
+  }
+
+  tag {
+    key = "Name"
+    propagate_at_launch = true
+    value = var.cluster-name
+  }
 }

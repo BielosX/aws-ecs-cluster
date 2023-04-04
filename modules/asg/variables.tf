@@ -46,3 +46,7 @@ variable "warm-pool-max-prepared" {
   type = number
   default = 0
 }
+
+variable "cluster-name" {
+  type = string
+}

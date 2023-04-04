@@ -8,6 +8,10 @@ resource "aws_security_group" "instance-sg" {
   }
 }
 
+resource "aws_ecs_cluster" "cluster" {
+  name = var.cluster-name
+}
+
 module "asg" {
   source = "./asg"
   instance-role-name = var.instance-role-name
@@ -17,4 +21,25 @@ module "asg" {
   security-group-ids = concat([aws_security_group.instance-sg.id], var.security-group-ids)
   subnet-ids = var.subnet-ids
   warm-pool-min-size = var.warm-pool-min-size
+  cluster-name = aws_ecs_cluster.cluster.name
+  user-data = templatefile("${path.module}/init.sh", {
+    cluster_name: aws_ecs_cluster.cluster.name
+  })
+}
+
+resource "aws_ecs_capacity_provider" "asg-capacity-provider" {
+  name = "asg-capacity-provider"
+
+  auto_scaling_group_provider {
+    auto_scaling_group_arn = module.asg.asg-arn
+    managed_scaling {
+      instance_warmup_period = 30
+      status = "ENABLED"
+    }
+  }
+}
+
+resource "aws_ecs_cluster_capacity_providers" "cluster-capacity-providers" {
+  cluster_name = aws_ecs_cluster.cluster.name
+  capacity_providers = [aws_ecs_capacity_provider.asg-capacity-provider.name]
 }
