@@ -36,6 +36,16 @@ variable "warm-pool-max-prepared" {
   default = 0
 }
 
+variable "warm-pool-state" {
+  type = string
+  default = "Stopped"
+}
+
 variable "cluster-name" {
   type = string
+}
+
+variable "root-encrypted" {
+  type = bool
+  default = false
 }

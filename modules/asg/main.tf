@@ -18,6 +18,19 @@ resource "aws_launch_template" "cluster-instance-template" {
   iam_instance_profile {
     arn = aws_iam_instance_profile.cluster-instance-profile.arn
   }
+
+  dynamic "block_device_mappings" {
+    for_each = var.root-encrypted ? [1] : []
+    content {
+      device_name = "/dev/xvda"
+      ebs {
+        delete_on_termination = true
+        volume_size = 30
+        encrypted = var.root-encrypted
+        volume_type = "gp2"
+      }
+    }
+  }
 }
 
 resource "aws_autoscaling_group" "cluster-asg" {

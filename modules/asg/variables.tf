@@ -50,3 +50,8 @@ variable "warm-pool-max-prepared" {
 variable "cluster-name" {
   type = string
 }
+
+variable "root-encrypted" {
+  type = bool
+  default = false
+}

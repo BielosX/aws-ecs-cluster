@@ -43,5 +43,7 @@ module "cluster" {
   vpc-id = data.aws_vpc.default.id
   warm-pool-min-size = 2
   warm-pool-max-prepared = 2
+  warm-pool-state = "Hibernated"
   cluster-name = "demo-cluster"
+  root-encrypted = true
 }

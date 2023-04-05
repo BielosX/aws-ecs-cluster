@@ -21,10 +21,18 @@ module "asg" {
   security-group-ids = concat([aws_security_group.instance-sg.id], var.security-group-ids)
   subnet-ids = var.subnet-ids
   warm-pool-min-size = var.warm-pool-min-size
+  warm-pool-state = var.warm-pool-state
   cluster-name = aws_ecs_cluster.cluster.name
-  user-data = templatefile("${path.module}/init.sh", {
-    cluster_name: aws_ecs_cluster.cluster.name
-  })
+  root-encrypted = var.root-encrypted
+  user-data = <<-EOT
+  #!/bin/bash
+  echo "ECS_CLUSTER=${aws_ecs_cluster.cluster.name}" >> /etc/ecs/ecs.config
+  echo "ECS_ENABLE_CONTAINER_METADATA=true" >> /etc/ecs/ecs.config
+  echo "ECS_ENABLE_TASK_IAM_ROLE=true" >> /etc/ecs/ecs.config
+  echo "ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true" >> /etc/ecs/ecs.config
+  echo "ECS_ENABLE_TASK_ENI=true" >> /etc/ecs/ecs.config
+  echo "ECS_WARM_POOLS_CHECK=true" >> /etc/ecs/ecs.config
+  EOT
 }
 
 resource "aws_ecs_capacity_provider" "asg-capacity-provider" {
