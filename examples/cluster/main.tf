@@ -25,7 +25,11 @@ data "aws_subnets" "subnets" {
 
 resource "aws_iam_role" "instance-role" {
   assume_role_policy = data.aws_iam_policy_document.ec2-assume-role.json
-  managed_policy_arns = ["arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"]
+  managed_policy_arns = [
+    "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+    "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+  ]
 }
 
 module "cluster" {

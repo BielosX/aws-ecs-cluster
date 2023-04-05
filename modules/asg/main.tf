@@ -1,18 +1,9 @@
-data "aws_ami" "amazon-linux-2023" {
-  owners = ["amazon"]
-  most_recent = true
-  filter {
-    name = "name"
-    values = ["al2023-ami-*-x86_64"]
-  }
-  filter {
-    name = "root-device-type"
-    values = ["ebs"]
-  }
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
+data "aws_ssm_parameter" "ecs-ami" {
+  name = "/aws/service/ecs/optimized-ami/amazon-linux-2/recommended"
+}
+
+locals {
+  image-id = jsondecode(data.aws_ssm_parameter.ecs-ami.value)["image_id"]
 }
 
 resource "aws_iam_instance_profile" "cluster-instance-profile" {
@@ -20,7 +11,7 @@ resource "aws_iam_instance_profile" "cluster-instance-profile" {
 }
 
 resource "aws_launch_template" "cluster-instance-template" {
-  image_id = data.aws_ami.amazon-linux-2023.id
+  image_id = local.image-id
   instance_type = var.instance-type
   vpc_security_group_ids = var.security-group-ids
   user_data = var.user-data != "" ? base64encode(var.user-data) : null

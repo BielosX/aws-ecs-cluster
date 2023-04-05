@@ -33,6 +33,9 @@ resource "aws_ecs_capacity_provider" "asg-capacity-provider" {
   auto_scaling_group_provider {
     auto_scaling_group_arn = module.asg.asg-arn
     managed_scaling {
+      maximum_scaling_step_size = 1
+      minimum_scaling_step_size = 1
+      target_capacity = 100
       instance_warmup_period = 30
       status = "ENABLED"
     }
