@@ -20,6 +20,7 @@ variable "subnet-ids" {
 
 variable "security-group-ids" {
   type = list(string)
+  default = []
 }
 
 variable "instance-role-name" {

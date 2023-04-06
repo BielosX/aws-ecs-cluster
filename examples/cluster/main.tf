@@ -38,12 +38,11 @@ module "cluster" {
   instance-type = "t3.micro"
   max-size = 4
   min-size = 2
-  security-group-ids = []
   subnet-ids = data.aws_subnets.subnets.ids
   vpc-id = data.aws_vpc.default.id
   warm-pool-min-size = 2
   warm-pool-max-prepared = 2
-  warm-pool-state = "Hibernated"
+  warm-pool-state = "Stopped"
   cluster-name = "demo-cluster"
-  root-encrypted = true
+  root-encrypted = false
 }
