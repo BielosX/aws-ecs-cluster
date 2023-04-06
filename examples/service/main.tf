@@ -40,7 +40,7 @@ resource "aws_ecs_task_definition" "nginx" {
 
 resource "aws_ecs_service" "nginx" {
   name = "nginx"
-  desired_count = 2
+  desired_count = 4
   task_definition = aws_ecs_task_definition.nginx.id
   cluster = "demo-cluster"
 
@@ -59,4 +59,8 @@ resource "aws_ecs_service" "nginx" {
     subnets = module.vpc.private_subnets
   }
   */
+
+  lifecycle {
+    ignore_changes = [capacity_provider_strategy]
+  }
 }

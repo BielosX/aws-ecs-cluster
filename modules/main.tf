@@ -43,8 +43,8 @@ resource "aws_ecs_capacity_provider" "asg-capacity-provider" {
     managed_scaling {
       maximum_scaling_step_size = 1
       minimum_scaling_step_size = 1
-      target_capacity = 100
-      instance_warmup_period = 30
+      target_capacity = 50
+      instance_warmup_period = 10
       status = "ENABLED"
     }
   }
@@ -53,4 +53,8 @@ resource "aws_ecs_capacity_provider" "asg-capacity-provider" {
 resource "aws_ecs_cluster_capacity_providers" "cluster-capacity-providers" {
   cluster_name = aws_ecs_cluster.cluster.name
   capacity_providers = [aws_ecs_capacity_provider.asg-capacity-provider.name]
+  default_capacity_provider_strategy {
+    capacity_provider =aws_ecs_capacity_provider.asg-capacity-provider.name
+    weight = 100
+  }
 }

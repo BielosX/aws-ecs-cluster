@@ -37,7 +37,7 @@ module "cluster" {
   instance-role-name = aws_iam_role.instance-role.name
   instance-type = "t3.micro"
   max-size = 4
-  min-size = 2
+  min-size = 0
   subnet-ids = data.aws_subnets.subnets.ids
   vpc-id = data.aws_vpc.default.id
   warm-pool-min-size = 2

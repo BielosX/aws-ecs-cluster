@@ -36,7 +36,9 @@ resource "aws_launch_template" "cluster-instance-template" {
 resource "aws_autoscaling_group" "cluster-asg" {
   max_size = var.max-size
   min_size = var.min-size
+  desired_capacity = 0
   vpc_zone_identifier = var.subnet-ids
+  default_instance_warmup = 0
   launch_template {
     id = aws_launch_template.cluster-instance-template.id
     version = aws_launch_template.cluster-instance-template.latest_version
@@ -63,5 +65,9 @@ resource "aws_autoscaling_group" "cluster-asg" {
     key = "Name"
     propagate_at_launch = true
     value = var.cluster-name
+  }
+
+  lifecycle {
+    ignore_changes = [desired_capacity]
   }
 }
