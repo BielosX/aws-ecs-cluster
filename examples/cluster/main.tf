@@ -12,15 +12,19 @@ data "aws_iam_policy_document" "ec2-assume-role" {
   }
 }
 
-data "aws_vpc" "default" {
-  default = true
+data "aws_availability_zones" "available" {
+  state = "available"
 }
 
-data "aws_subnets" "subnets" {
-  filter {
-    name = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
+module "vpc" {
+  source = "../vpc"
+  availability-zones = data.aws_availability_zones.available.names
+  cidr = "10.0.0.0/16"
+  cluster-subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  container-subnets = ["10.0.10.0/24", "10.0.20.0/24"]
+  lb-subnets = ["10.0.30.0/24", "10.0.40.0/24"]
+  public-subnets = ["10.0.50.0/24", "10.0.60.0/24"]
+  name-prefix = "demo-cluster-vpc"
 }
 
 resource "aws_iam_role" "instance-role" {
@@ -35,11 +39,11 @@ resource "aws_iam_role" "instance-role" {
 module "cluster" {
   source = "../../modules"
   instance-role-name = aws_iam_role.instance-role.name
-  instance-type = "t3.micro"
+  instance-type = "t3.medium"
   max-size = 4
   min-size = 0
-  subnet-ids = data.aws_subnets.subnets.ids
-  vpc-id = data.aws_vpc.default.id
+  subnet-ids = module.vpc.cluster-subnet-ids
+  vpc-id = module.vpc.vpc-id
   warm-pool-min-size = 2
   warm-pool-max-prepared = 2
   warm-pool-state = "Stopped"

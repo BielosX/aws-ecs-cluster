@@ -1,24 +1,32 @@
 provider "aws" {}
 
-data "aws_availability_zones" "available" {
-  state = "available"
+data "aws_vpc" "cluster" {
+  filter {
+    name = "tag:Name"
+    values = ["demo-cluster-vpc"]
+  }
 }
 
-locals {
-  first-az = data.aws_availability_zones.available.names[0]
-  second-az = data.aws_availability_zones.available.names[1]
+data "aws_subnets" "container-subnets" {
+  filter {
+    name = "vpc-id"
+    values = [data.aws_vpc.cluster.id]
+  }
+  filter {
+    name = "tag:Name"
+    values = ["demo-cluster-vpc-container-subnet"]
+  }
 }
 
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "3.19.0"
-  cidr = "10.0.0.0/16"
-  single_nat_gateway = true
-  azs = [local.first-az, local.second-az]
-  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
-  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
-  enable_dns_hostnames = true
-  enable_dns_support = true
+data "aws_subnets" "lb-subnets" {
+  filter {
+    name = "vpc-id"
+    values = [data.aws_vpc.cluster.id]
+  }
+  filter {
+    name = "tag:Name"
+    values = ["demo-cluster-vpc-lb-subnet"]
+  }
 }
 
 module "ecs-container-definition" {
@@ -28,20 +36,82 @@ module "ecs-container-definition" {
   container_name = "nginx"
   container_memory = 512
   container_cpu = 512
+  port_mappings = [{
+    protocol: "tcp",
+    containerPort: 80,
+    hostPort: 80
+  }]
 }
 
 resource "aws_ecs_task_definition" "nginx" {
-  network_mode = "bridge"
+  network_mode = "awsvpc"
   container_definitions = module.ecs-container-definition.json_map_encoded_list
   family = "nginx"
+  requires_compatibilities = ["EC2"]
   cpu = 512
   memory = 512
 }
 
+resource "aws_security_group" "lb-sg" {
+  vpc_id = data.aws_vpc.cluster.id
+  ingress {
+    cidr_blocks = ["0.0.0.0/0"]
+    protocol = "tcp"
+    from_port = 80
+    to_port = 80
+  }
+  egress {
+    cidr_blocks = [data.aws_vpc.cluster.cidr_block]
+    protocol = "tcp"
+    from_port = 80
+    to_port = 80
+  }
+}
+
+resource "aws_security_group" "container-sg" {
+  vpc_id = data.aws_vpc.cluster.id
+  ingress {
+    security_groups = [aws_security_group.lb-sg.id]
+    protocol = "tcp"
+    from_port = 80
+    to_port = 80
+  }
+  egress {
+    cidr_blocks = ["0.0.0.0/0"]
+    protocol = "tcp"
+    from_port = 443
+    to_port = 443
+  }
+}
+
+resource "aws_lb" "service-alb" {
+  load_balancer_type = "application"
+  subnets = data.aws_subnets.lb-subnets.ids
+  security_groups = [aws_security_group.lb-sg.id]
+}
+
+resource "aws_alb_listener" "service-alb-listener" {
+  load_balancer_arn = aws_lb.service-alb.arn
+  port = "80"
+  protocol = "HTTP"
+  default_action {
+    type = "forward"
+    target_group_arn = aws_alb_target_group.service-alb-target-group.arn
+  }
+}
+
+resource "aws_alb_target_group" "service-alb-target-group" {
+  target_type = "ip" // Required for awsvpc
+  protocol = "HTTP"
+  port = "80"
+  vpc_id = data.aws_vpc.cluster.id
+}
+
 resource "aws_ecs_service" "nginx" {
+  launch_type = "EC2"
   name = "nginx"
-  desired_count = 4
-  task_definition = aws_ecs_task_definition.nginx.id
+  desired_count = 2
+  task_definition = aws_ecs_task_definition.nginx.arn
   cluster = "demo-cluster"
 
   ordered_placement_strategy {
@@ -54,11 +124,17 @@ resource "aws_ecs_service" "nginx" {
     rollback = true
   }
 
-  /*
-  network_configuration {
-    subnets = module.vpc.private_subnets
+  load_balancer {
+    target_group_arn = aws_alb_target_group.service-alb-target-group.arn
+    container_name = module.ecs-container-definition.json_map_object["name"]
+    container_port = 80
   }
-  */
+
+  // Same VPC as cluster!!
+  network_configuration {
+    subnets = data.aws_subnets.container-subnets.ids
+    security_groups = [aws_security_group.container-sg.id]
+  }
 
   lifecycle {
     ignore_changes = [capacity_provider_strategy]
