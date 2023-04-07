@@ -8,6 +8,50 @@ resource "aws_security_group" "instance-sg" {
   }
 }
 
+data "aws_region" "current" {}
+
+locals {
+  region = data.aws_region.current.name
+}
+
+resource "aws_ssm_parameter" "cloud-watch-agent-config" {
+  name = "/${var.cluster-name}/cloud-watch-agent-config"
+  type = "String"
+  value = jsonencode({
+    metrics: {
+      namespace: var.cluster-name,
+      metrics_collected: {
+        mem: {
+          measurement: [
+            "mem_used",
+            "mem_total"
+          ],
+          metrics_collection_interval: 60
+        },
+        procstat: [
+          {
+            exe: "dockerd|containerd",
+            measurement: [
+              "cpu_usage",
+              "memory_rss",
+              "read_bytes",
+              "write_bytes",
+              "read_count",
+              "write_count"
+            ],
+            metrics_collection_interval: 60
+          }
+        ]
+      },
+      append_dimensions: {
+        InstanceId: "$${aws:InstanceId}"
+      },
+      aggregation_dimensions: [["InstanceId"]],
+      force_flush_interval: 30
+    }
+  })
+}
+
 resource "aws_ecs_cluster" "cluster" {
   name = var.cluster-name
 }
@@ -26,12 +70,23 @@ module "asg" {
   root-encrypted = var.root-encrypted
   user-data = <<-EOT
   #!/bin/bash
+
+  yum -y update
+  yum -y install wget
+
   echo "ECS_CLUSTER=${aws_ecs_cluster.cluster.name}" >> /etc/ecs/ecs.config
   echo "ECS_ENABLE_CONTAINER_METADATA=true" >> /etc/ecs/ecs.config
   echo "ECS_ENABLE_TASK_IAM_ROLE=true" >> /etc/ecs/ecs.config
   echo "ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true" >> /etc/ecs/ecs.config
   echo "ECS_ENABLE_TASK_ENI=true" >> /etc/ecs/ecs.config
   echo "ECS_WARM_POOLS_CHECK=true" >> /etc/ecs/ecs.config
+
+  CW_AGENT="https://s3.${local.region}.amazonaws.com/amazoncloudwatch-agent-${local.region}/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm"
+  wget -nv "$CW_AGENT"
+  rpm -U ./amazon-cloudwatch-agent.rpm
+
+  /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+    -a fetch-config -m ec2 -s -c ssm:${aws_ssm_parameter.cloud-watch-agent-config.name}
   EOT
 }
 
