@@ -1,9 +1,9 @@
-data "aws_ssm_parameter" "ecs-ami" {
-  name = "/aws/service/ecs/optimized-ami/amazon-linux-2/recommended"
-}
-
-locals {
-  image-id = jsondecode(data.aws_ssm_parameter.ecs-ami.value)["image_id"]
+data "aws_ami" "ecs-ami" {
+  owners = ["amazon"]
+  filter {
+    name = "name"
+    values = ["amzn2-ami-ecs-hvm-${var.image-version}-x86_64-ebs"]
+  }
 }
 
 resource "aws_iam_instance_profile" "cluster-instance-profile" {
@@ -11,7 +11,7 @@ resource "aws_iam_instance_profile" "cluster-instance-profile" {
 }
 
 resource "aws_launch_template" "cluster-instance-template" {
-  image_id = local.image-id
+  image_id = data.aws_ami.ecs-ami.image_id
   instance_type = var.instance-type
   vpc_security_group_ids = var.security-group-ids
   user_data = var.user-data != "" ? base64encode(var.user-data) : null

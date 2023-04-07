@@ -50,3 +50,7 @@ variable "root-encrypted" {
   type = bool
   default = false
 }
+
+variable "image-version" {
+  type = string
+}

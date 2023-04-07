@@ -49,4 +49,5 @@ module "cluster" {
   warm-pool-state = "Stopped"
   cluster-name = "demo-cluster"
   root-encrypted = false
+  image-version = "2.0.20230321"
 }

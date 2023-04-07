@@ -58,6 +58,7 @@ resource "aws_ecs_cluster" "cluster" {
 
 module "asg" {
   source = "./asg"
+  image-version = var.image-version
   instance-role-name = var.instance-role-name
   instance-type = var.instance-type
   max-size = var.max-size
