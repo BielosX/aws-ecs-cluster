@@ -1,5 +1,7 @@
 provider "aws" {}
 
+data "aws_region" "current" {}
+
 data "aws_vpc" "cluster" {
   filter {
     name = "tag:Name"
@@ -29,6 +31,10 @@ data "aws_subnets" "lb-subnets" {
   }
 }
 
+resource "aws_cloudwatch_log_group" "service-log-group" {
+  name = "/demo-cluster/nginx"
+}
+
 module "ecs-container-definition" {
   source  = "cloudposse/ecs-container-definition/aws"
   version = "0.58.2"
@@ -41,6 +47,29 @@ module "ecs-container-definition" {
     containerPort: 80,
     hostPort: 80
   }]
+  log_configuration = {
+    logDriver: "awslogs",
+    options: {
+      "awslogs-region": data.aws_region.current.name,
+      "awslogs-group": aws_cloudwatch_log_group.service-log-group.name
+    }
+  }
+}
+
+data "aws_iam_policy_document" "task-assume-role" {
+  statement {
+    effect = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      identifiers = ["ecs-tasks.amazonaws.com"]
+      type = "Service"
+    }
+  }
+}
+
+resource "aws_iam_role" "task-role" {
+  assume_role_policy = data.aws_iam_policy_document.task-assume-role.json
+  managed_policy_arns = ["arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"]
 }
 
 resource "aws_ecs_task_definition" "nginx" {
@@ -50,6 +79,7 @@ resource "aws_ecs_task_definition" "nginx" {
   requires_compatibilities = ["EC2"]
   cpu = 512
   memory = 512
+  task_role_arn = aws_iam_role.task-role.arn
 }
 
 resource "aws_security_group" "lb-sg" {
